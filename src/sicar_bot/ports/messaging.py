@@ -25,13 +25,21 @@ class InboundMedia:
 
 @dataclass(frozen=True, slots=True)
 class InboundMessage:
-    """Mensaje entrante normalizado, independiente del transporte."""
+    """Mensaje entrante normalizado, independiente del transporte.
+
+    Un turno puede traer varios archivos: la agrupación de mensajes consecutivos
+    junta la foto y el texto que la explica en un mismo ``InboundMessage``.
+    """
 
     wa_jid: str
     message_id: str
     timestamp: datetime
     text: str | None = None
-    media: InboundMedia | None = None
+    medias: tuple[InboundMedia, ...] = ()
+
+    @property
+    def has_media(self) -> bool:
+        return bool(self.medias)
 
 
 MessageHandler = Callable[[InboundMessage], Awaitable[None]]

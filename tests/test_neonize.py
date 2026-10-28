@@ -63,7 +63,7 @@ def test_text_message_is_normalized():
     assert message.message_id == "MSG1"
     assert message.timestamp == datetime.fromtimestamp(1_700_000_000, tz=UTC)
     assert message.text == "me hackearon"
-    assert message.media is None
+    assert message.medias == ()
 
 
 def test_timestamp_in_seconds_is_accepted():
@@ -98,12 +98,12 @@ def test_image_is_downloaded():
 
     assert message is not None
     assert message.text == "comprobante"
-    assert message.media is not None
-    assert message.media.kind is MediaKind.IMAGE
-    assert message.media.mime_type == "image/jpeg"
-    assert message.media.data == b"JPEG"
-    assert message.media.caption == "comprobante"
-    assert message.media.filename is None
+    assert len(message.medias) == 1
+    assert message.medias[0].kind is MediaKind.IMAGE
+    assert message.medias[0].mime_type == "image/jpeg"
+    assert message.medias[0].data == b"JPEG"
+    assert message.medias[0].caption == "comprobante"
+    assert message.medias[0].filename is None
 
 
 def test_download_receives_inner_message():
@@ -128,7 +128,7 @@ def test_oversized_media_is_skipped_but_text_kept():
 
     assert message is not None
     assert message.text == "foto"
-    assert message.media is None
+    assert message.medias == ()
 
 
 def test_download_failure_keeps_text():
@@ -139,7 +139,7 @@ def test_download_failure_keeps_text():
 
     assert message is not None
     assert message.text == "mirá esto"
-    assert message.media is None
+    assert message.medias == ()
 
 
 def test_document_is_downloaded_with_filename():
@@ -154,11 +154,11 @@ def test_document_is_downloaded_with_filename():
     message = to_inbound(event, download=_download(b"PDF"))
 
     assert message is not None
-    assert message.media is not None
-    assert message.media.kind is MediaKind.DOCUMENT
-    assert message.media.mime_type == "application/pdf"
-    assert message.media.filename == "denuncia.pdf"
-    assert message.media.data == b"PDF"
+    assert len(message.medias) == 1
+    assert message.medias[0].kind is MediaKind.DOCUMENT
+    assert message.medias[0].mime_type == "application/pdf"
+    assert message.medias[0].filename == "denuncia.pdf"
+    assert message.medias[0].data == b"PDF"
 
 
 class FakeClient:

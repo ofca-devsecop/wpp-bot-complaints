@@ -18,6 +18,7 @@ from sicar_bot.domain.extraction import prefill
 from sicar_bot.domain.redaction import redact
 from sicar_bot.domain.survey import (
     FIELD_LABELS,
+    MAX_EVIDENCE,
     ConversationState,
     Field,
     Outcome,
@@ -45,15 +46,15 @@ RATE_WINDOW = timedelta(minutes=1)
 
 
 def _message_kind(inbound: InboundMessage) -> str:
-    if inbound.media is None:
+    if not inbound.has_media:
         return "text"
     if inbound.text:
         return "mixed"
-    return inbound.media.kind.value
+    return inbound.medias[0].kind.value
 
 
 def _has_content(inbound: InboundMessage) -> bool:
-    if inbound.media is not None:
+    if inbound.has_media:
         return True
     return normalize(inbound.text or "") not in GREETINGS
 
@@ -94,7 +95,7 @@ class ConversationService:
 
             conversations = ConversationRepository(session)
             conversation = conversations.get_or_create(inbound.wa_jid)
-            command = commands.parse(inbound.text or "") if inbound.media is None else None
+            command = commands.parse(inbound.text or "") if not inbound.has_media else None
             if command is not None:
                 reply = self._command(session, conversation, conversations, command)
             elif (
@@ -149,7 +150,7 @@ class ConversationService:
 
         reports = ReportRepository(session)
         report = reports.create_draft(inbound.wa_jid)
-        draft = ReportDraft(evidence_count=self._store_evidence(session, report, inbound))
+        draft = ReportDraft(evidence_count=self._store_medias(session, report, inbound))
         result = await self._extract(inbound)
         if result is not None:
             prefill(draft, result.extraction)
@@ -193,12 +194,20 @@ class ConversationService:
             conversations.reset(conversation)
             return messages.WELCOME
 
-        if inbound.media is not None:
-            if not self._store_evidence(session, report, inbound):
+        room = max(MAX_EVIDENCE - draft.evidence_count, 0)
+        if inbound.has_media and survey.current_field is Field.EVIDENCE:
+            if not self._store_medias(session, report, inbound, limit=room):
+                return messages.EVIDENCE_REJECTED
+            step = survey.add_evidence()
+        elif inbound.text:
+            self._store_medias(session, report, inbound, limit=room)
+            step = survey.submit(self._answer(inbound, survey.current_field))
+        elif inbound.has_media:
+            if not self._store_medias(session, report, inbound, limit=room):
                 return messages.EVIDENCE_REJECTED
             step = survey.add_evidence()
         else:
-            step = survey.submit(self._answer(inbound, survey.current_field))
+            return ""
 
         reports.apply_draft(report, survey.draft)
         if step.outcome is Outcome.DONE:
@@ -232,35 +241,45 @@ class ConversationService:
             return messages.CLOSING.format(codigo=report.public_code)
         return ""
 
-    def _store_evidence(self, session: Session, report: Report, inbound: InboundMessage) -> bool:
-        media = inbound.media
-        if media is None:
-            return False
-        try:
-            stored = self._store.save(report.id, media)
-        except EvidenceError as error:
-            log.warning("evidence rejected", extra={"mime": media.mime_type, "error": str(error)})
-            return False
-        session.add(
-            Evidence(
-                report_id=report.id,
-                kind=stored.kind.value,
-                mime_type=stored.mime_type,
-                sha256=stored.sha256,
-                storage_path=stored.storage_path,
-                caption=inbound.text,
+    def _store_medias(
+        self,
+        session: Session,
+        report: Report,
+        inbound: InboundMessage,
+        *,
+        limit: int = MAX_EVIDENCE,
+    ) -> int:
+        stored_count = 0
+        for media in inbound.medias:
+            if stored_count >= limit:
+                log.warning("evidence ignored: limit reached", extra={"report_id": report.id})
+                break
+            try:
+                stored = self._store.save(report.id, media)
+            except EvidenceError as error:
+                log.warning(
+                    "evidence rejected", extra={"mime": media.mime_type, "error": str(error)}
+                )
+                continue
+            session.add(
+                Evidence(
+                    report_id=report.id,
+                    kind=stored.kind.value,
+                    mime_type=stored.mime_type,
+                    sha256=stored.sha256,
+                    storage_path=stored.storage_path,
+                    caption=media.caption or inbound.text,
+                )
             )
-        )
-        return True
+            stored_count += 1
+        return stored_count
 
     async def _extract(self, inbound: InboundMessage) -> ExtractionResult | None:
-        media = inbound.media
-        vision = media is not None and media.mime_type in VISION_TYPES
-        images = (
-            [ImagePart(mime_type=media.mime_type, data=media.data)]
-            if vision and media.kind is MediaKind.IMAGE
-            else []
-        )
+        images = [
+            ImagePart(mime_type=media.mime_type, data=media.data)
+            for media in inbound.medias
+            if media.kind is MediaKind.IMAGE and media.mime_type in VISION_TYPES
+        ]
         text = redact(inbound.text or "")
         if not text.strip() and not images:
             return None

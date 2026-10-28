@@ -140,11 +140,13 @@ Plan completo en `tasks/plan.md`. Un ítem por tarea. No avanzar con una tarea s
 - [x] E2E de punta a punta contra dobles de test (`test_full_conversation_submits_and_returns_code`).
 - [ ] Revisión humana del guion conversacional.
 
-- [ ] **T17. Agrupación de mensajes consecutivos** (prioridad alta, antes de T13)
-  - [ ] `InboundMessage.media` → `medias: tuple[InboundMedia, ...]` en el puerto y el adaptador.
-  - [ ] `services/merger.py`: ventana de 3 s por JID, solo para media sin texto.
-  - [ ] Foto + texto = un turno; foto sola = un turno al vencer la ventana; texto + texto = dos turnos.
-  - Verificación: `tests/test_merger.py` con ventana corta.
+- [x] **T17. Agrupación de mensajes consecutivos** (prioridad alta, antes de T13)
+  - [x] `InboundMessage.media` → `medias: tuple[InboundMedia, ...]` en el puerto y el adaptador.
+  - [x] `services/merger.py`: ventana de 3 s por JID, solo para media sin texto.
+  - [x] Foto + texto = un turno; foto sola = un turno al vencer la ventana; texto + texto = dos turnos.
+  - [x] `MERGE_WINDOW_SECONDS` en `Settings`, aplicado en `scripts/whatsapp_smoke.py`.
+  - Verificación: `tests/test_merger.py` (7 casos) + 2 casos en `test_conversation.py`. 179 passed.
+  - Pendiente: falta el entrypoint de producción que envuelva el servicio con el merger.
   - Deps: T10. Scope: M.
 
 ## Fase 6 — Salida a SICAR-C

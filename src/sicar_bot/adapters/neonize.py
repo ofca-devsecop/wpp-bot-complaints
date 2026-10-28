@@ -109,7 +109,8 @@ def to_inbound(
     message = event.Message
     text = extract_text(message) or None
     media = _extract_media(message, download=download, max_media_bytes=max_media_bytes)
-    if text is None and media is None:
+    medias = (media,) if media is not None else ()
+    if text is None and not medias:
         return None
 
     timestamp = _timestamp(info.Timestamp)
@@ -118,7 +119,7 @@ def to_inbound(
         message_id=info.ID,
         timestamp=timestamp,
         text=text,
-        media=media,
+        medias=medias,
     )
 
 

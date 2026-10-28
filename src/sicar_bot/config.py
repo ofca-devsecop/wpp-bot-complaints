@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://sicar:sicar@localhost:5432/sicar"
     neonize_session_db: str = "./data/neonize.db"
     whatsapp_max_media_bytes: int = 10 * 1024 * 1024
+    merge_window_seconds: float = 3.0
     evidence_dir: str = "./data/evidence"
 
     gemini_api_key: str = ""

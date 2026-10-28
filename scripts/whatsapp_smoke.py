@@ -14,6 +14,7 @@ import logging
 
 from sicar_bot.adapters.neonize import NeonizeMessaging
 from sicar_bot.config import get_settings
+from sicar_bot.services.merger import MessageMerger
 
 
 async def main() -> None:
@@ -24,20 +25,23 @@ async def main() -> None:
     )
 
     async def handler(message) -> None:
-        media = message.media
+        medias = [
+            (media.kind.value, media.mime_type, len(media.data)) for media in message.medias
+        ]
         print(
-            f"IN {message.wa_jid} {message.message_id} text={message.text!r} "
-            f"media={None if media is None else (media.kind, media.mime_type, len(media.data))}"
+            f"IN {message.wa_jid} {message.message_id} text={message.text!r} media={medias}"
         )
         await messaging.send_text(message.wa_jid, "recibí tu mensaje")
 
-    messaging.on_message(handler)
+    merger = MessageMerger(handler, window=settings.merge_window_seconds)
+    messaging.on_message(merger)
     await messaging.start()
     print("esperando mensajes (Ctrl-C para salir)")
     try:
         while True:
             await asyncio.sleep(3600)
     finally:
+        merger.aclose()
         await messaging.stop()
 
 

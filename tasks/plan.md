@@ -141,7 +141,9 @@ pregunta, y el texto que llega después se interpreta como respuesta a esa pregu
 - Los mensajes con texto **nunca** se agrupan entre sí. Dos respuestas seguidas (`alta`,
   `CABA`) siguen siendo dos turnos; fusionarlas rompería la encuesta.
 - El pendiente vive en memoria. Si el proceso muere se pierde y el usuario reenvía.
-- El rate limit sigue contando mensajes individuales, no turnos.
+- El rate limit cuenta turnos entregados, no mensajes sueltos: una ráfaga es un turno.
+- Un turno con texto responde la encuesta y guarda su media como evidencia. En el paso
+  de evidencia, si hay media se cuenta como evidencia y el texto se ignora.
 
 ### Cambios
 

@@ -92,7 +92,7 @@ def _inbound(
         message_id=message_id,
         timestamp=datetime(2026, 10, 28, 12, 0, tzinfo=UTC),
         text=text or None,
-        media=media,
+        medias=(media,) if media is not None else (),
     )
 
 
@@ -396,6 +396,50 @@ async def test_evidence_yes_then_image_advances(tmp_path, session_factory, messa
 
     assert "Resumen de tu denuncia:" in messaging.sent[-1][1]
     session.expire_all()
+    assert len(session.scalars(select(Evidence)).all()) == 1
+
+
+async def test_merged_photo_and_text_answers_and_keeps_the_evidence(
+    tmp_path, session_factory, messaging, session
+):
+    service = ConversationService(
+        session_factory=session_factory,
+        extractor=FakeExtractor(),
+        evidence_store=FilesystemEvidenceStore(tmp_path / "evidence"),
+        messaging=messaging,
+    )
+
+    await _say(service, messaging, "me estafaron", message_id="m1")
+    await service.handle(_inbound("1", media=_media(), message_id="m2"))
+
+    assert messaging.sent[-1][1].endswith(messages.question(Field.SEVERITY))
+    session.expire_all()
+    report = session.scalars(select(Report)).one()
+    assert report.threat_type is ThreatType.FRAUDE_EN_LINEA
+    assert len(session.scalars(select(Evidence)).all()) == 1
+
+
+async def test_photo_then_text_at_the_evidence_step_counts_as_evidence(
+    tmp_path, session_factory, messaging, session
+):
+    from sicar_bot.adapters.db.models import Conversation
+
+    service = ConversationService(
+        session_factory=session_factory,
+        extractor=FakeExtractor(_full()),
+        evidence_store=FilesystemEvidenceStore(tmp_path / "evidence"),
+        messaging=messaging,
+    )
+
+    await _say(service, messaging, "me estafaron por whatsapp en Carlos Paz", message_id="m1")
+    assert (await _say(service, messaging, "sí", message_id="m2")) == messages.EVIDENCE_REQUEST
+
+    await service.handle(_inbound("no tengo más", media=_media(), message_id="m3"))
+
+    assert "Resumen de tu denuncia:" in messaging.sent[-1][1]
+    session.expire_all()
+    conversation = session.get(Conversation, JID)
+    assert conversation.evidence_skipped is False
     assert len(session.scalars(select(Evidence)).all()) == 1
 
 

@@ -62,7 +62,7 @@ def _inbound(text: str, message_id: str) -> InboundMessage:
         message_id=message_id,
         timestamp=datetime(2026, 10, 28, 12, 0, tzinfo=UTC),
         text=text or None,
-        media=None,
+        medias=(),
     )
 
 

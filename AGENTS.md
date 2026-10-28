@@ -63,7 +63,11 @@ Reglas de dependencia:
   solo `Survey`. El servicio no inventa transiciones.
 - **Progreso persistido**: `conversations.evidence_skipped` y `omitted_fields` existen para que
   la encuesta se reconstruya entre mensajes con `Survey.restore`.
-- **Rate limit**: 20 mensajes entrantes por minuto por JID, contados sobre `messages`. Al
+- **Un turno puede traer varios media**: `InboundMessage.medias` es una tupla.
+  `MessageMerger` retiene solo media sin texto (ventana `MERGE_WINDOW_SECONDS`) y entrega
+  foto + texto como un único turno. Con texto, el turno responde la encuesta y la media se
+  guarda como evidencia.
+- **Rate limit**: 20 turnos entrantes por minuto por JID, contados sobre `messages`. Al
   excederse se descarta en silencio y se loguea (nunca se responde, para no amplificar).
 - **Redacción**: el texto se guarda y se manda al LLM solo después de `redact()`.
 
