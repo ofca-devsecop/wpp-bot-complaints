@@ -106,6 +106,19 @@ def test_image_is_downloaded():
     assert message.media.filename is None
 
 
+def test_download_receives_inner_message():
+    event = _event(image={"mimetype": "image/jpeg", "fileLength": 4})
+    received = []
+
+    def download(arg):
+        received.append(arg)
+        return b"JPEG"
+
+    to_inbound(event, download=download)
+
+    assert received == [event.Message]
+
+
 def test_oversized_media_is_skipped_but_text_kept():
     event = _event(
         image={"mimetype": "image/png", "caption": "foto", "fileLength": 20},

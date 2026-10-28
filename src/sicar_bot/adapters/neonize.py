@@ -44,7 +44,6 @@ def _timestamp(raw: int) -> datetime:
 
 
 def _extract_media(
-    event,
     message,
     *,
     download: Callable[[object], bytes | None],
@@ -72,7 +71,7 @@ def _extract_media(
         return None
 
     try:
-        data = download(event)
+        data = download(message)
     except Exception:
         log.warning("media download failed", exc_info=True)
         return None
@@ -109,7 +108,7 @@ def to_inbound(
 
     message = event.Message
     text = extract_text(message) or None
-    media = _extract_media(event, message, download=download, max_media_bytes=max_media_bytes)
+    media = _extract_media(message, download=download, max_media_bytes=max_media_bytes)
     if text is None and media is None:
         return None
 
