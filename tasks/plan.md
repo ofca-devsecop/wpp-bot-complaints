@@ -121,6 +121,47 @@ Alias aceptados además del nombre exacto: `CABA`, `Capital Federal`, `Ciudad de
 - Tras 72 h sin actividad, el borrador queda `abandoned` (job simple, no notifica).
 - Rate limit: 20 mensajes por minuto por JID.
 
+## Agrupación de mensajes consecutivos
+
+WhatsApp entrega un mismo envío del usuario como varios mensajes: primero la foto y
+después el texto que la explica, textos largos partidos en dos, o dos fotos seguidas. Hoy
+cada mensaje es un turno completo de la encuesta: la foto sola dispara bienvenida + primera
+pregunta, y el texto que llega después se interpreta como respuesta a esa pregunta.
+
+**Decisión: ventana de agrupación por JID, solo alrededor de media sin texto.**
+
+- Un mensaje que trae media y **no** trae texto útil (ni caption) no se procesa solo: queda
+  pendiente para ese JID y abre una ventana de `MERGE_WINDOW_SECONDS` (3 s por defecto).
+- Si llega otro mensaje del mismo JID dentro de la ventana, se fusionan en un único turno:
+  textos concatenados con `\n` y media acumulada.
+- Si la ventana vence sin otro mensaje, el pendiente se procesa solo. Una foto sola igual
+  recibe respuesta.
+- Un mensaje con texto se procesa de inmediato, salvo que haya media pendiente: en ese caso
+  se fusiona y se procesa sin esperar el resto de la ventana.
+- Los mensajes con texto **nunca** se agrupan entre sí. Dos respuestas seguidas (`alta`,
+  `CABA`) siguen siendo dos turnos; fusionarlas rompería la encuesta.
+- El pendiente vive en memoria. Si el proceso muere se pierde y el usuario reenvía.
+- El rate limit sigue contando mensajes individuales, no turnos.
+
+### Cambios
+
+1. `ports/messaging.py`: `InboundMessage.media` pasa a `medias: tuple[InboundMedia, ...]`.
+2. `adapters/neonize.py`: `_extract_medias` devuelve una tupla (hoy 0 o 1 elemento).
+3. `ports/extractor.py` y `adapters/gemini.py`: `extract(text, medias)` manda un
+   `Part.from_bytes` por archivo.
+4. `services/conversation.py`: guarda cada evidencia del turno y extrae con todas.
+5. `services/merger.py` (nuevo): `MessageMerger(handler, window)`, un pendiente y un timer por
+   JID, `aclose()` para cancelarlos.
+6. Wiring: `messaging.on_message(merger)` en lugar de `service.handle`.
+7. `config.py`: `merge_window_seconds: float = 3.0`.
+
+### Riesgos
+
+- Latencia de hasta 3 s solo cuando llega media sin texto.
+- Foto y texto separados por más de la ventana son dos turnos; el texto cae en la primera
+  pregunta y la encuesta repregunta. Aceptable.
+- Un pendiente por JID como máximo; expira con la ventana.
+
 ## Contrato de extracción LLM
 
 Salida JSON estricta, validada con Pydantic. Valor desconocido o enum inválido → `null`.
@@ -227,6 +268,7 @@ escribí HOLA.
 - [ ] T10. Ingesta: primer mensaje → extracción → borrador → primera pregunta faltante.
 - [ ] T11. Confirmación, corrección, alta y código público.
 - [ ] T12. Comandos, cancelación, rate limit y abandono.
+- [ ] T17. Agrupación de mensajes consecutivos (ventana por JID, media + texto = un turno).
 
 ### Checkpoint C (tras T10–T12)
 - [ ] Conversación completa de punta a punta contra transporte y LLM falsos.

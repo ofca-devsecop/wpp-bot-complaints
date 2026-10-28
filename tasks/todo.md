@@ -140,6 +140,13 @@ Plan completo en `tasks/plan.md`. Un ítem por tarea. No avanzar con una tarea s
 - [x] E2E de punta a punta contra dobles de test (`test_full_conversation_submits_and_returns_code`).
 - [ ] Revisión humana del guion conversacional.
 
+- [ ] **T17. Agrupación de mensajes consecutivos** (prioridad alta, antes de T13)
+  - [ ] `InboundMessage.media` → `medias: tuple[InboundMedia, ...]` en el puerto y el adaptador.
+  - [ ] `services/merger.py`: ventana de 3 s por JID, solo para media sin texto.
+  - [ ] Foto + texto = un turno; foto sola = un turno al vencer la ventana; texto + texto = dos turnos.
+  - Verificación: `tests/test_merger.py` con ventana corta.
+  - Deps: T10. Scope: M.
+
 ## Fase 6 — Salida a SICAR-C
 
 - [ ] **T13. API de lectura y CSV**
@@ -177,7 +184,7 @@ Plan completo en `tasks/plan.md`. Un ítem por tarea. No avanzar con una tarea s
 
 ## Orden de ejecución
 
-T1 → T2 → T3 → (A) → T4 → T5 → (B) → T6 → T7 → T8 → T9 → (C) → T10 → T11 → T12 → (D) → T13 → T14 → T15 → T16 → Final.
+T1 → T2 → T3 → (A) → T4 → T5 → (B) → T6 → T7 → T8 → T9 → (C) → T10 → T11 → T12 → T17 → (D) → T13 → T14 → T15 → T16 → Final.
 
 ## Estimación
 
@@ -186,7 +193,8 @@ T1 → T2 → T3 → (A) → T4 → T5 → (B) → T6 → T7 → T8 → T9 → (
 | T1–T3 (dominio) | 4–6 |
 | T4–T9 (infra + canales) | 11–13 |
 | T10–T12 (flujo) | 5–7 |
+| T17 (agrupación) | 1,5–2 |
 | T13–T16 (salida + deploy) | 7–9 |
-| **Total** | **27–35 h** |
+| **Total** | **28,5–37 h** |
 
 MVP usable (hasta Checkpoint D): 19–25 h.
